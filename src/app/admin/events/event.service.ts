@@ -7,7 +7,7 @@ import { EventModel } from '../core/models/event';
 export class EventService {
     
     private apiUrl = 'https://backend.rcc-londrina.online/api/v1';
-    // private apiUrl = 'http://localhost:5290/api/v1';
+//    private apiUrl = 'http://192.168.15.5:5100/api/v1';
     
     constructor(private http: HttpClient) {}
     

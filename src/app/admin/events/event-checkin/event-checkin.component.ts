@@ -2,9 +2,10 @@ import { ActivatedRoute } from "@angular/router";
 import { EventModel } from "../../core/models/event";
 import { Registration } from "../../core/models/registration";
 import { EventService } from "../event.service";
-import { Component, Injectable, OnInit } from "@angular/core";
+import { AfterViewInit, Component, Injectable, NgZone, OnInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { ToastrService } from "ngx-toastr";
+import { SignalrService } from "../../core/signalr.service";
 
 @Component({
   standalone: true,
@@ -26,59 +27,83 @@ export class EventCheckinComponent implements OnInit {
   participantes: any[] = [];
   pendentes: any[] = [];
   realizados: any[] = [];
+  realizado: number = 0;
+  pendente: number = 0;
   
   
-  constructor(private route: ActivatedRoute, private service: EventService, private toastr: ToastrService) {}
-  
-  ngOnInit() {
-    const id = this.route.snapshot.params['id'];
+  constructor(private route: ActivatedRoute, 
+    private service: EventService, 
+    private toastr: ToastrService,
+    private signalr: SignalrService,
+    private zone: NgZone) {}
     
-    this.service.getEventById(id).subscribe((e: any) => {
-      this.evento = e
-      this.nomeEvento = e.nome;
-    });
-    
-    this.service.getRegistrations(id).subscribe(list => {
-      this.participantes = list;
-    });
-  }
-  
-  get participantesFiltrados(): any[] {
-    return this.participantes
-    .filter(p =>
-      this.abaAtiva === 'pendentes'
-      ? !p.checkIn
-      : p.checkIn
-    )
-    .filter(p =>
-      p.nome.toLowerCase().includes(this.filtro.toLowerCase()) ||
-      p.email.toLowerCase().includes(this.filtro.toLowerCase()) ||
-      p.codigoInscricao.includes(this.filtro) ||
-      p.cpf.includes(this.filtro)
-    );
-  }
-  
-  get percentualCheckin(): number {
-    if (!this.participantes.length) return 0;
-    
-    const feitos = this.participantes.filter(p => p.checkedIn).length;
-    return Math.round((feitos / this.participantes.length) * 100);
-  }
-  
-  fazerCheckin(inscricao: any) {
-    this.service.fazerCheckin(inscricao.codigoInscricao).subscribe({
-      next: () => {
-        // remove da lista de pendentes
+    ngOnInit() {
+      const id = this.route.snapshot.params['id'];
+      
+      this.service.getEventById(id).subscribe((e: any) => {
+        this.evento = e
+        this.nomeEvento = e.nome;
+      });
+      
+      this.service.getRegistrations(id).subscribe(list => {
+        this.participantes = list;
+        this.pendente = this.participantes.filter(x => !x.checkIn ).length;
+        this.realizado = this.participantes.filter(x => x.checkIn ).length;
         
-        this.pendentes = this.pendentes.filter(x => x.id !== inscricao.id);
+      });
+      
+      // inicia websocket
+      this.signalr.startConnection();
+      
+      // escuta checkin em tempo real
+      this.signalr.onCheckinRealizado((codigoInscricao: string) => {
+        this.zone.run(() => {
+          this.participantes = this.participantes.filter(x => x.codigoInscricao !== codigoInscricao);
+          
+          this.pendente--;
+          this.realizado++;
+        });
         
-        // marca e adiciona nos realizados
-        inscricao.checkIn = true;
-        this.toastr.success("CheckIn realizado com sucesso!")
-      },
-      error: () => {
-        alert('Check-in já realizado ou erro no servidor');
-      }
-    });
+      });
+    }
+    
+    get participantesFiltrados(): any[] {
+      return this.participantes
+      .filter(p =>
+        this.abaAtiva === 'pendentes'
+        ? !p.checkIn
+        : p.checkIn
+      )
+      .filter(p =>
+        p.nome.toLowerCase().includes(this.filtro.toLowerCase()) ||
+        p.email.toLowerCase().includes(this.filtro.toLowerCase()) ||
+        p.codigoInscricao.includes(this.filtro) ||
+        p.cpf.includes(this.filtro)
+      );
+    }
+    
+    get percentualCheckin(): number {
+      if (!this.participantes.length) return 0;
+      
+      const feitos = this.participantes.filter(p => p.checkedIn).length;
+      return Math.round((feitos / this.participantes.length) * 100);
+    }
+    
+    fazerCheckin(inscricao: any) {
+      this.service.fazerCheckin(inscricao.codigoInscricao).subscribe({
+        next: () => {
+          // remove da lista de pendentes
+          
+          this.pendentes = this.pendentes.filter(x => x.id !== inscricao.id);
+          
+          // marca e adiciona nos realizados
+          inscricao.checkIn = true;
+          this.toastr.success("CheckIn realizado com sucesso!")
+        },
+        error: () => {
+          alert('Check-in já realizado ou erro no servidor');
+        }
+      });
+    }
   }
-}
+  

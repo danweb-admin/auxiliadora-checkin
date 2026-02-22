@@ -16,11 +16,11 @@
   <!-- Abas -->
   <div class="tabs">
     <button [class.active]="abaAtiva === 'pendentes'" (click)="abaAtiva = 'pendentes'">
-      Check-in pendente
+      Check-in pendente ({{pendente}})
     </button>
     
     <button [class.active]="abaAtiva === 'realizados'" (click)="abaAtiva = 'realizados'">
-      Check-in realizado
+      Check-in realizado ({{realizado}})
     </button>
   </div>
   
