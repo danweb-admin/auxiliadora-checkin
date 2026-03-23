@@ -31,5 +31,5 @@ jobs:
           context: .
           push: true
           tags: |
-            williambr2022/rcc-evento-checkin-front:latest
-            williambr2022/rcc-evento-checkin-front:${{ github.sha }}
+            williambr2022/auxiliadora-checkin:latest
+            williambr2022/auxiliadora-checkin:${{ github.sha }}
